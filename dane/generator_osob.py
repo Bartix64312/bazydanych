@@ -1,36 +1,48 @@
-from random import choice,randint
-imiona_zenskie=[]
-with open("dane\imiona_zenskie.txt","r") as dane:
+from random import choice, randint
+
+# Wczytywanie imion żeńskich
+imiona_zenskie = []
+with open("imiona_zenskie.txt", "r", encoding="utf-8") as dane:
     for wiersz in dane:
-        wiersz=wiersz.strip()
+        wiersz = wiersz.strip()
         imiona_zenskie.append(wiersz)
-imiona_meskie=[]
-with open("dane\imiona_zenskie.txt","r") as dane:
+
+# Wczytywanie imion męskich (wcześniej był błąd – otwierałeś ponownie imiona_żeńskie!)
+imiona_meskie = []
+with open("imiona_meskie.txt", "r", encoding="utf-8") as dane:
     for wiersz in dane:
-        wiersz=wiersz.strip()
+        wiersz = wiersz.strip()
         imiona_meskie.append(wiersz)
-nazwiska_zenskie=[]
-with open("nazwiska_zenskie.txt","r") as dane:
+
+# Wczytywanie nazwisk żeńskich
+nazwiska_zenskie = []
+with open("nazwiska_zenskie.txt", "r", encoding="utf-8") as dane:
     for wiersz in dane:
-        wiersz=wiersz.strip()
+        wiersz = wiersz.strip()
         nazwiska_zenskie.append(wiersz)
-nazwiska_meskie=[]
-with open("nazwiska_meskie.txt","r") as dane:
+
+# Wczytywanie nazwisk męskich
+nazwiska_meskie = []
+with open("nazwiska_meskie.txt", "r", encoding="utf-8") as dane:
     for wiersz in dane:
-        wiersz=wiersz.strip()
+        wiersz = wiersz.strip()
         nazwiska_meskie.append(wiersz)
-f=open("osoby.csv",'w')
-f.write("id,imie,nazwisko,plec\n")
-for i in range(5000):
-    if i==331:
-        f.write(str(i)+f",Dzwonimierz,Talarski,MEZCZYZNA\n")
-        continue
-    bartek=randint(1,100)#he said that this is better name
-    if bartek==1:
-        f.write(str(i)+f",{choice(imiona_meskie+imiona_zenskie)},{choice(nazwiska_meskie+nazwiska_zenskie)},NIEOKRESLONY\n")
-        continue
-    boolean=randint(0,1)
-    if boolean==1:
-        f.write(str(i)+f",{choice(imiona_meskie)},{choice(nazwiska_meskie)},MEZCZYZNA\n")
-    else:
-        f.write(str(i)+f",{choice(imiona_zenskie)},{choice(nazwiska_zenskie)},KOBIETA\n")
+
+# Tworzenie pliku CSV
+with open("osoby.csv", "w", encoding="utf-8") as f:
+    f.write("id,imie,nazwisko,plec\n")
+    for i in range(5000):
+        if i == 331:
+            f.write(f"{i},Dzwonimierz,Talarski,MEZCZYZNA\n")
+            continue
+
+        bartek = randint(1, 100)  # Losowy współczynnik dla NIEOKRESLONY
+        if bartek == 1:
+            f.write(f"{i},{choice(imiona_meskie + imiona_zenskie)},{choice(nazwiska_meskie + nazwiska_zenskie)},NIEOKRESLONY\n")
+            continue
+
+        # Losowanie płci
+        if randint(0, 1) == 1:
+            f.write(f"{i},{choice(imiona_meskie)},{choice(nazwiska_meskie)},MEZCZYZNA\n")
+        else:
+            f.write(f"{i},{choice(imiona_zenskie)},{choice(nazwiska_zenskie)},KOBIETA\n")
