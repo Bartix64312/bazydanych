@@ -5,28 +5,28 @@ imiona_zenskie = []
 with open("imiona_zenskie.txt", "r", encoding="utf-8") as dane:
     for wiersz in dane:
         wiersz = wiersz.strip()
-        imiona_zenskie.append(wiersz)
+        imiona_zenskie.append(wiersz.capitalize())
 
 # Wczytywanie imion męskich (wcześniej był błąd – otwierałeś ponownie imiona_żeńskie!)
 imiona_meskie = []
 with open("imiona_meskie.txt", "r", encoding="utf-8") as dane:
     for wiersz in dane:
         wiersz = wiersz.strip()
-        imiona_meskie.append(wiersz)
+        imiona_meskie.append(wiersz.capitalize())
 
 # Wczytywanie nazwisk żeńskich
 nazwiska_zenskie = []
 with open("nazwiska_zenskie.txt", "r", encoding="utf-8") as dane:
     for wiersz in dane:
         wiersz = wiersz.strip()
-        nazwiska_zenskie.append(wiersz)
+        nazwiska_zenskie.append(wiersz.capitalize())
 
 # Wczytywanie nazwisk męskich
 nazwiska_meskie = []
 with open("nazwiska_meskie.txt", "r", encoding="utf-8") as dane:
     for wiersz in dane:
         wiersz = wiersz.strip()
-        nazwiska_meskie.append(wiersz)
+        nazwiska_meskie.append(wiersz.capitalize())
 
 # Tworzenie pliku CSV
 with open("osoby.csv", "w", encoding="utf-8") as f:
