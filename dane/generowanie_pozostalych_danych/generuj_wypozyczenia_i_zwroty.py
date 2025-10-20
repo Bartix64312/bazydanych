@@ -57,8 +57,7 @@ def generuj_zwroty(wypozyczenia):
             data_zwrotu = datetime.now() - timedelta(days=random.randint(0, 5))
         zwroty.append({
             "id_wypozyczenia": w["id_wypozyczenia"],
-            "data_zwrotu": data_zwrotu.strftime("%Y-%m-%d"),
-            "id_ksiazki": w["id_ksiazki"]
+            "data_zwrotu": data_zwrotu.strftime("%Y-%m-%d")
         })
     return zwroty
 
@@ -73,7 +72,7 @@ with open("wypozyczenia.csv", "w", newline="", encoding="utf-8") as f:
     writer.writerows(wypozyczenia)
 
 with open("zwroty.csv", "w", newline="", encoding="utf-8") as f:
-    writer = csv.DictWriter(f, fieldnames=["id_wypozyczenia", "data_zwrotu", "id_ksiazki"])
+    writer = csv.DictWriter(f, fieldnames=["id_wypozyczenia", "data_zwrotu"])
     writer.writeheader()
     writer.writerows(zwroty)
 
