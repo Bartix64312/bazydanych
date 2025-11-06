@@ -30,7 +30,4 @@ Projekt bazy danych do zarządzania nowoczesną biblioteką, zaimplementowany w 
 - **Ograniczenia (`Constraints`):** Zastosowano ograniczenia `NOT NULL` i `UNIQUE`, aby zapobiec wprowadzaniu niekompletnych lub zduplikowanych danych.
 
 ## Schemat Bazy Danych
-*(Tutaj możesz wstawić zaktualizowany diagram swojej bazy danych, jeśli go posiadasz)*
 
----
-Ten projekt jest gotowy do integracji z aplikacją webową lub desktopową, zapewniając solidny backend dla nowoczesnego systemu bibliotecznego.
