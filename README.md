@@ -31,3 +31,4 @@ Projekt bazy danych do zarządzania nowoczesną biblioteką, zaimplementowany w 
 
 ## Schemat Bazy Danych
 
+<img width="1377" height="1366" alt="schematbazdanych" src="https://github.com/user-attachments/assets/343d7e80-afa4-4897-b47b-fc3ff2d8f0e1" />
