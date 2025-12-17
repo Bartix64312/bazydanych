@@ -8,6 +8,8 @@
         :root {
             --primary-color: #2c3e50;
             --accent-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #e67e22;
             --text-color: #333;
             --bg-color: #ecf0f1;
             --code-bg: #282c34;
@@ -35,7 +37,7 @@
         .slide {
             display: none;
             width: 80%;
-            height: 85%; /* Zwiększona wysokość dla lepszego widoku schematu */
+            height: 85%;
             background: white;
             padding: 40px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
@@ -68,6 +70,11 @@
             margin-top: 0;
         }
 
+        h3 {
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
         ul {
             font-size: 1.1em;
             line-height: 1.6;
@@ -83,15 +90,17 @@
             padding: 15px;
             border-radius: 8px;
             font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.95em;
+            font-size: 0.9em;
             overflow-x: auto;
             border-left: 5px solid var(--accent-color);
+            margin-top: 5px;
         }
 
         code { font-family: inherit; }
         .keyword { color: #c678dd; font-weight: bold; }
         .string { color: #98c379; }
         .comment { color: #5c6370; font-style: italic; }
+        .function { color: #61afef; }
 
         .controls {
             position: absolute;
@@ -132,11 +141,11 @@
 
         .card {
             background: #f8f9fa;
-            padding: 20px;
+            padding: 15px;
             border-left: 4px solid var(--primary-color);
+            border-radius: 4px;
         }
 
-        /* Styl dla obrazka schematu */
         .schema-container {
             flex-grow: 1;
             display: flex;
@@ -171,49 +180,47 @@
     
     <!-- SLAJD 1: TYTUŁ -->
     <div class="slide active">
-        <span class="slide-number">1 / 9</span>
+        <span class="slide-number">1 / 11</span>
         <div style="text-align: center; margin-top: auto; margin-bottom: auto;">
             <h1 style="border: none; font-size: 3.5em;">System Zarządzania Biblioteką</h1>
-            <h2>Struktura, Automatyzacja i Weryfikacja Danych w PostgreSQL</h2>
-            <p style="font-size: 1.5em; margin-top: 50px;">Projekt Bazy Danych</p>
-            
+            <h2>Struktura, Automatyzacja i Bezpieczeństwo w PostgreSQL</h2>
+            <p style="font-size: 1.5em; margin-top: 50px;">Projekt Zaliczeniowy</p>
         </div>
     </div>
 
     <!-- SLAJD 2: STRUKTURA -->
     <div class="slide">
-        <span class="slide-number">2 / 9</span>
+        <span class="slide-number">2 / 11</span>
         <h1>Struktura Danych</h1>
-        <p>Baza danych została zaprojektowana w oparciu o model relacyjny. Główne obszary systemu to:</p>
+        <p>Baza danych została zaprojektowana w oparciu o model relacyjny (12 tabel). System obejmuje:</p>
         
         <div class="grid-2">
             <div class="card">
                 <h3>📚 Zasoby</h3>
                 <ul>
-                    <li><strong>Ksiazki:</strong> Centralny magazyn tytułów.</li>
-                    <li><strong>Filie:</strong> Fizyczne lokalizacje bibliotek.</li>
-                    <li><strong>Kategorie:</strong> Gatunki literackie.</li>
+                    <li><strong>Ksiazki, Filie, Kategorie</strong></li>
+                    <li>Centralny magazyn tytułów i ich lokalizacje.</li>
                 </ul>
             </div>
             <div class="card">
                 <h3>👤 Użytkownicy</h3>
                 <ul>
-                    <li><strong>Uzytkownicy:</strong> Dane czytelników, loginy.</li>
+                    <li><strong>Uzytkownicy</strong></li>
+                    <li>Dane czytelników i pracowników (hasła hashowane).</li>
                 </ul>
             </div>
             <div class="card">
-                <h3>🔄 Procesy</h3>
+                <h3>🔄 Logika Biznesowa</h3>
                 <ul>
-                    <li><strong>Wypozyczenia:</strong> Łączy książkę z użytkownikiem.</li>
-                    <li><strong>Zwroty:</strong> Rejestracja oddania.</li>
-                    <li><strong>Rezerwacje:</strong> Kolejka oczekujących.</li>
+                    <li><strong>Wypozyczenia, Zwroty, Rezerwacje</strong></li>
+                    <li>Obsługa ruchu książek i kolejek.</li>
                 </ul>
             </div>
             <div class="card">
-                <h3>⚖️ Kontrola</h3>
+                <h3>🛠️ Zaawansowane</h3>
                 <ul>
-                    <li><strong>Kary:</strong> Opłaty za przetrzymanie/zniszczenie.</li>
-                    <li><strong>Komentarze:</strong> System opinii.</li>
+                    <li><strong>Widoki, Triggery, Procedury</strong></li>
+                    <li>Automatyzacja i raportowanie.</li>
                 </ul>
             </div>
         </div>
@@ -221,123 +228,145 @@
 
     <!-- SLAJD 3: RELACJE -->
     <div class="slide">
-        <span class="slide-number">3 / 9</span>
-        <h1>Kluczowe Relacje</h1>
-        <p>Baza zapewnia integralność danych poprzez zastosowanie kluczy obcych (Foreign Keys):</p>
+        <span class="slide-number">3 / 11</span>
+        <h1>Kluczowe Relacje i Integralność</h1>
+        <p>Baza zapewnia spójność danych poprzez:</p>
         <ul>
-            <li><strong>Relacja 1:N (Jeden do Wielu)</strong>:
+            <li><strong>Klucze Obce (Foreign Keys):</strong> Blokada usunięcia użytkownika, który ma nieoddane książki.</li>
+            <li><strong>Constrainty (CHECK):</strong> 
                 <ul>
-                    <li>Jedna <strong>Filia</strong> posiada wiele <strong>Książek</strong>.</li>
-                    <li>Jeden <strong>Użytkownik</strong> może dokonać wielu <strong>Wypożyczeń</strong>.</li>
-                    <li>Jedna <strong>Kategoria</strong> może być przypisana do wielu <strong>Książek</strong>.</li>
-                </ul>
-            </li>
-            <li><strong>Zależność Logiczna</strong>:
-                <ul>
-                    <li>Tabela <strong>Zwroty</strong> jest ściśle powiązana z tabelą <strong>Wypożyczenia</strong>. Nie można zwrócić książki, która nie została wypożyczona.</li>
+                    <li>Oceny tylko w skali 1-10.</li>
+                    <li>Płeć ograniczona do słownika.</li>
+                    <li>Daty: Planowany zwrot nie może być wcześniejszy niż wypożyczenie.</li>
                 </ul>
             </li>
         </ul>
-        <div style="background: #e8f6f3; padding: 15px; border-radius: 5px;">
-            <strong>Przykład:</strong> Usunięcie użytkownika jest zablokowane, jeśli posiada on aktywne wypożyczenia lub naliczone kary (Constraints).
-        </div>
+        <pre><span class="keyword">ALTER TABLE</span> wypozyczenia 
+<span class="keyword">ADD CONSTRAINT</span> check_planowana_data 
+<span class="keyword">CHECK</span> (planowana_data_zwrotu >= data_wypozyczenia);</pre>
     </div>
 
-    <!-- SLAJD 4: SCHEMAT GRAFICZNY (NOWY) -->
+    <!-- SLAJD 4: SCHEMAT GRAFICZNY -->
     <div class="slide">
-        <span class="slide-number">4 / 9</span>
-        <h1>Wizualizacja ERD (Entity Relationship Diagram)</h1>
-        <p>Poniższy schemat przedstawia kompletny model logiczny bazy danych, uwzględniając klucze główne, obce oraz typy danych.</p>
-        
+        <span class="slide-number">4 / 11</span>
+        <h1>Wizualizacja ERD</h1>
+        <p>Kompletny model logiczny bazy danych.</p>
         <div class="schema-container">
-            <!-- PAMIĘTAJ: Zapisz obrazek jako schemat.png w tym samym folderze co ten plik HTML -->
-            <img src="schemat.png" alt="Schemat Bazy Danych Biblioteki" class="schema-img" title="Kliknij i przytrzymaj, aby powiększyć">
+            <img src="schemat.png" alt="Schemat Bazy Danych" class="schema-img">
         </div>
-        <p style="text-align: center; font-size: 0.9em; color: #7f8c8d;">Schemat wygenerowany w narzędziu do modelowania baz danych.</p>
     </div>
 
-    <!-- SLAJD 5: TRIGGER - WYPOŻYCZENIE -->
+    <!-- SLAJD 5: AUTOMATYZACJA (STATUSY) -->
     <div class="slide">
-        <span class="slide-number">5 / 9</span>
-        <h1>Automatyzacja: Wypożyczenie</h1>
-        <p>Zastosowano <strong>Trigger</strong>, aby wyeliminować błędy ludzkie przy zmianie statusu książki.</p>
+        <span class="slide-number">5 / 11</span>
+        <h1>Automatyzacja: Statusy Książek</h1>
+        <p>Dwa <strong>Triggery</strong> dbają o to, aby status książki zmieniał się samoczynnie.</p>
         
-        <div class="card">
-            <h3>Trigger: <code>fn_after_wypozyczenie_insert</code></h3>
-            <p><strong>Działanie:</strong> W momencie dodania rekordu do tabeli <code>wypozyczenia</code>, system automatycznie zmienia status w tabeli <code>ksiazki</code>.</p>
+        <div class="grid-2">
+            <div class="card">
+                <h3>Wypożyczenie</h3>
+                <p>Gdy dodajemy rekord do <code>wypozyczenia</code>, trigger <code>fn_after_wypozyczenie_insert</code> zmienia status książki na <strong>'wypożyczony'</strong>.</p>
+            </div>
+            <div class="card">
+                <h3>Zwrot</h3>
+                <p>Gdy dodajemy rekord do <code>zwroty</code>, trigger <code>fn_after_zwrot_insert</code> przywraca status na <strong>'dostępny'</strong>.</p>
+            </div>
+        </div>
+        <div style="margin-top: 15px; font-style: italic; color: #555;">
+            * Eliminuje to błędy bibliotekarzy, którzy mogliby zapomnieć o aktualizacji stanu magazynowego.
+        </div>
+    </div>
+
+    <!-- SLAJD 6: ZAAWANSOWANA INTEGRALNOŚĆ -->
+    <div class="slide">
+        <span class="slide-number">6 / 11</span>
+        <h1>Zaawansowana Logika Danych</h1>
+        <p>Zastosowano zaawansowany <strong>Trigger Walidacyjny</strong>, aby zapobiec błędom logicznym w datach pomiędzy różnymi tabelami.</p>
+
+        <div class="card" style="border-left-color: var(--warning-color);">
+            <h3>Problem:</h3>
+            <p>Standardowy <code>CHECK</code> nie może porównywać danych z dwóch różnych tabel (Wypożyczenia vs Zwroty). Jak zablokować zwrot z datą wsteczną?</p>
+        </div>
+
+        <h3>Rozwiązanie: Trigger <code>trg_walidacja_daty_zwrotu</code></h3>
+        <pre>
+<span class="keyword">IF</span> NEW.data_zwrotu < v_data_wypozyczenia <span class="keyword">THEN</span>
+    <span class="keyword">RAISE EXCEPTION</span> <span class="string">'Błąd: Data zwrotu nie może być wcześniejsza niż data wypożyczenia'</span>;
+<span class="keyword">END IF</span>;</pre>
+        <p>Funkcja ta uruchamia się przed każdym wpisem do tabeli Zwroty i blokuje błędne operacje.</p>
+    </div>
+
+    <!-- SLAJD 7: PROCEDURY I RAPORTY -->
+    <div class="slide">
+        <span class="slide-number">7 / 11</span>
+        <h1>Procedury i Raportowanie</h1>
+        <p>Implementacja elementów ułatwiających zarządzanie i analizę danych.</p>
+
+        <div class="grid-2">
+            <div>
+                <h3>1. Widok (View): Dłużnicy</h3>
+                <p>Gotowy raport pokazujący osoby, które przetrzymują książki.</p>
+                <pre><span class="keyword">CREATE VIEW</span> view_dluznicy <span class="keyword">AS</span>
+<span class="keyword">SELECT</span> u.imie, u.nazwisko, k.tytul, 
+(CURRENT_DATE - w.planowana_data_zwrotu) <span class="keyword">as</span> dni_spoznienia
+<span class="keyword">FROM</span> wypozyczenia w ...
+<span class="keyword">WHERE</span> w.planowana_data_zwrotu < CURRENT_DATE;</pre>
+            </div>
+            <div>
+                <h3>2. Funkcja Składowana</h3>
+                <p>Szybkie sprawdzanie dostępności po ISBN.</p>
+                <pre><span class="keyword">SELECT</span> czy_ksiazka_dostepna(<span class="string">'978-0-317...'</span>);
+<span class="comment">-- Zwraca: TRUE / FALSE</span></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- SLAJD 8: BEZPIECZEŃSTWO -->
+    <div class="slide">
+        <span class="slide-number">8 / 11</span>
+        <h1>Zasady Bezpieczeństwa</h1>
+        <p>Zastosowano zasadę najmniejszych przywilejów (Least Privilege) poprzez system Ról.</p>
+
+        <div class="card" style="border-left-color: #e74c3c;">
+            <h3>Zarządzanie Dostępem (RBAC)</h3>
+            <ul>
+                <li><strong>Rola <code>bibliotekarz</code>:</strong> Pełny dostęp do zarządzania księgozbiorem i wypożyczeniami.</li>
+                <li><strong>Rola <code>gosc_biblioteki</code>:</strong> Ograniczony dostęp tylko do odczytu (SELECT).</li>
+            </ul>
         </div>
 
         <pre>
-<span class="keyword">CREATE FUNCTION</span> public.fn_after_wypozyczenie_insert() <span class="keyword">RETURNS trigger</span>
-<span class="keyword">LANGUAGE</span> plpgsql
-<span class="keyword">AS</span> $$
-<span class="keyword">BEGIN</span>
-    <span class="comment">-- Automatyczna zmiana statusu na 'wypożyczony'</span>
-    <span class="keyword">UPDATE</span> ksiazki 
-    <span class="keyword">SET</span> status = <span class="string">'wypożyczony'</span> 
-    <span class="keyword">WHERE</span> id_ksiazki = NEW.id_ksiazki;
-    <span class="keyword">RETURN</span> NEW;
-<span class="keyword">END</span>;
-$$;</pre>
+<span class="keyword">CREATE ROLE</span> gosc_biblioteki <span class="keyword">WITH LOGIN PASSWORD</span> <span class="string">'gosc123'</span>;
+
+<span class="comment">-- Gość widzi tylko katalog, nie widzi danych osobowych (RODO)</span>
+<span class="keyword">GRANT SELECT ON</span> ksiazki, kategorie, filie <span class="keyword">TO</span> gosc_biblioteki;
+<span class="keyword">REVOKE ALL ON</span> uzytkownicy <span class="keyword">FROM</span> gosc_biblioteki;</pre>
     </div>
 
-    <!-- SLAJD 6: TRIGGER - ZWROT -->
+    <!-- SLAJD 9: TESTY - SCENARIUSZ 1 -->
     <div class="slide">
-        <span class="slide-number">6 / 9</span>
-        <h1>Automatyzacja: Zwrot</h1>
-        <p>Analogiczny mechanizm działa przy oddawaniu książki, przywracając ją do obiegu.</p>
+        <span class="slide-number">9 / 11</span>
+        <h1>Scenariusze Testowe</h1>
+        <p>Weryfikacja działania automatyzacji (Triggerów).</p>
 
-        <div class="card">
-            <h3>Trigger: <code>fn_after_zwrot_insert</code></h3>
-            <p><strong>Działanie:</strong> Po dodaniu wpisu do tabeli <code>zwroty</code>, system szuka powiązanej książki i zmienia jej status na "dostępny".</p>
-        </div>
+        <h3>Krok 1: Wypożyczenie</h3>
+        <pre><span class="keyword">INSERT INTO</span> wypozyczenia (id_osoby, id_ksiazki, ...) <span class="keyword">VALUES</span> (1, 1, ...);
+<span class="keyword">SELECT</span> status <span class="keyword">FROM</span> ksiazki <span class="keyword">WHERE</span> id_ksiazki = 1;
+<span class="comment">-- Wynik: 'wypożyczony' (Sukces)</span></pre>
 
-        <pre>
-<span class="keyword">CREATE FUNCTION</span> public.fn_after_zwrot_insert() <span class="keyword">RETURNS trigger</span>
-<span class="keyword">LANGUAGE</span> plpgsql
-<span class="keyword">AS</span> $$
-<span class="keyword">DECLARE</span>
-    wypozyczona_ksiazka_id <span class="keyword">INT</span>;
-<span class="keyword">BEGIN</span>
-    <span class="comment">-- Pobierz ID książki z wypożyczenia</span>
-    <span class="keyword">SELECT</span> id_ksiazki <span class="keyword">INTO</span> wypozyczona_ksiazka_id 
-    <span class="keyword">FROM</span> wypozyczenia 
-    <span class="keyword">WHERE</span> id_wypozyczenia = NEW.id_wypozyczenia;
-    
-    <span class="comment">-- Zmień status na 'dostępny'</span>
-    <span class="keyword">UPDATE</span> ksiazki <span class="keyword">SET</span> status = <span class="string">'dostępny'</span> 
-    <span class="keyword">WHERE</span> id_ksiazki = wypozyczona_ksiazka_id;
-    <span class="keyword">RETURN</span> NEW;
-<span class="keyword">END</span>;
-$$;</pre>
+        <h3>Krok 2: Próba błędnego zwrotu (Test walidacji)</h3>
+        <pre><span class="keyword">INSERT INTO</span> zwroty (id_wypozyczenia, data_zwrotu) 
+<span class="keyword">VALUES</span> (100, <span class="string">'2020-01-01'</span>); <span class="comment">-- Data z przeszłości</span>
+<span class="comment">-- Wynik: BŁĄD! Trigger zablokował operację (Sukces)</span></pre>
     </div>
 
-    <!-- SLAJD 7: TESTY - SCENARIUSZ 1 -->
+    <!-- SLAJD 10: TESTY - SCENARIUSZ 2 -->
     <div class="slide">
-        <span class="slide-number">7 / 9</span>
-        <h1>Testy: Weryfikacja Wypożyczenia</h1>
-        <p>Sprawdźmy, czy trigger działa poprawnie na przykładowych danych.</p>
+        <span class="slide-number">10 / 11</span>
+        <h1>Testy: Raport Analityczny</h1>
+        <p>Wykorzystanie złączeń (JOIN) i agregacji do analizy danych.</p>
 
-        <h3>Krok 1: Sprawdzenie stanu przed</h3>
-        <pre><span class="keyword">SELECT</span> status <span class="keyword">FROM</span> ksiazki <span class="keyword">WHERE</span> id_ksiazki = 1;
-<span class="comment">-- Wynik: 'dostępny'</span></pre>
-
-        <h3>Krok 2: Wykonanie wypożyczenia</h3>
-        <pre><span class="keyword">INSERT INTO</span> wypozyczenia (id_osoby, id_ksiazki, data_wypozyczenia, planowana_data_zwrotu)
-<span class="keyword">VALUES</span> (1, 1, CURRENT_DATE, CURRENT_DATE + 30);</pre>
-
-        <h3>Krok 3: Weryfikacja automatyzacji</h3>
-        <pre><span class="keyword">SELECT</span> status <span class="keyword">FROM</span> ksiazki <span class="keyword">WHERE</span> id_ksiazki = 1;
-<span class="comment">-- Wynik Oczekiwany: 'wypożyczony' (Trigger zadziałał!)</span></pre>
-    </div>
-
-    <!-- SLAJD 8: TESTY - SCENARIUSZ 2 -->
-    <div class="slide">
-        <span class="slide-number">8 / 9</span>
-        <h1>Testy: Raportowanie i Analiza</h1>
-        <p>Baza umożliwia tworzenie zaawansowanych raportów biznesowych.</p>
-
-        <h3>Pytanie: Jakie są najpopularniejsze gatunki w bibliotece?</h3>
+        <h3>Pytanie: Jakie są najpopularniejsze gatunki?</h3>
         <pre>
 <span class="keyword">SELECT</span> 
     k.nazwa_kategorii, 
@@ -348,31 +377,24 @@ $$;</pre>
 <span class="keyword">GROUP BY</span> k.nazwa_kategorii
 <span class="keyword">ORDER BY</span> liczba_wypozyczen <span class="keyword">DESC</span>
 <span class="keyword">LIMIT</span> 5;</pre>
-
-        <div style="margin-top: 20px; font-style: italic;">
-            Zapytanie łączy 3 tabele, grupuje wyniki i sortuje je malejąco, dostarczając gotowe dane do analizy preferencji czytelników.
-        </div>
     </div>
 
-    <!-- SLAJD 9: PODSUMOWANIE -->
+    <!-- SLAJD 11: PODSUMOWANIE -->
     <div class="slide">
-        <span class="slide-number">9 / 9</span>
+        <span class="slide-number">11 / 11</span>
         <h1>Podsumowanie Projektu</h1>
         
-        <div class="card" style="border-left-color: #27ae60;">
-            <h3>✅ Osiągnięte Cele</h3>
+        <div class="card" style="border-left-color: var(--success-color);">
+            <h3>✅ Zrealizowane Funkcjonalności</h3>
             <ul>
-                <li>Pełna struktura relacyjna (12 tabel).</li>
-                <li>Poprawione kodowanie znaków (UTF-8).</li>
-                <li>Zaimplementowana automatyzacja statusów (Triggery).</li>
-                <li>Baza zasilona danymi testowymi (>100 rekordów).</li>
+                <li><strong>Schemat:</strong> Poprawna struktura relacyjna i typy danych.</li>
+                <li><strong>Integralność:</strong> Klucze obce, Constrainty i Triggery walidujące.</li>
+                <li><strong>Procedury:</strong> Zaimplementowane Funkcje, Triggery i Widoki.</li>
+                <li><strong>Bezpieczeństwo:</strong> Podział na role i uprawnienia.</li>
+                <li><strong>Raport:</strong> Widoki analityczne.</li>
             </ul>
         </div>
 
-        <br>
-        <h3>🚀 Możliwości Rozwoju</h3>
-        <p>Baza jest gotowa do podłączenia pod aplikację webową (Backend) oraz rozbudowy o system powiadomień mailowych o zbliżającym się terminie zwrotu.</p>
-        
         <div style="text-align: center; margin-top: 50px; font-weight: bold; font-size: 1.5em; color: var(--primary-color);">
             Dziękuję za uwagę
         </div>
