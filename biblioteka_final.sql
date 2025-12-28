@@ -6508,7 +6508,23 @@ ALTER TABLE ONLY public.wejscia
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: pg_database_owner
 --
+-- Tworzymy rolę bibliotekarza (jeśli nie istnieje)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'bibliotekarz') THEN
+    CREATE ROLE bibliotekarz WITH LOGIN PASSWORD 'haslo123';
+  END IF;
+END
+$$;
 
+-- Tworzymy rolę gościa (jeśli nie istnieje)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'gosc_biblioteki') THEN
+    CREATE ROLE gosc_biblioteki WITH LOGIN PASSWORD 'gosc123';
+  END IF;
+END
+$$;
 GRANT USAGE ON SCHEMA public TO bibliotekarz;
 GRANT USAGE ON SCHEMA public TO gosc_biblioteki;
 

@@ -1,0 +1,4 @@
+id_rodzaju_kary,nazwa_kary,opis
+1,Przetrzymanie,Kara za zwrot książki po terminie
+2,Zniszczenie,Kara za trwałe uszkodzenie książki
+3,Zgubienie,Opłata za zgubiony egzemplarz

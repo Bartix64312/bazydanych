@@ -1,0 +1,1 @@
+pg_dump -U postgres -h localhost -E UTF8 --no-owner --no-acl --clean --if-exists -f biblioteka_dump.sql biblioteka_zrobiona_od_nowa
