@@ -32,3 +32,179 @@ Projekt bazy danych do zarządzania nowoczesną biblioteką, zaimplementowany w 
 ## Schemat Bazy Danych
 
 <img width="1377" height="1366" alt="schematbazdanych" src="https://github.com/user-attachments/assets/343d7e80-afa4-4897-b47b-fc3ff2d8f0e1" />
+
+
+## 1. Funkcje Składowane (Functions)
+Funkcje te są wymagane do działania triggerów oraz sprawdzania dostępności książek.
+W bazie zdefiniowano 4 funkcje. Jedna jest funkcją logiczną (sprawdzającą dostępność), a trzy pozostałe to funkcje wyzwalaczy (trigger functions).
+```sql
+-- Funkcja: Sprawdzanie dostępności książki po numerze ISBN
+CREATE OR REPLACE FUNCTION public.czy_ksiazka_dostepna(p_isbn character varying) 
+RETURNS boolean
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_ilosc INT;
+BEGIN
+    SELECT COUNT(*) INTO v_ilosc 
+    FROM ksiazki 
+    WHERE nr_isbn = p_isbn AND status = 'dostępny';
+    
+    IF v_ilosc > 0 THEN
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
+END;
+$$;
+
+-- Funkcja triggera: Aktualizacja statusu książki po wypożyczeniu
+CREATE OR REPLACE FUNCTION public.fn_after_wypozyczenie_insert() 
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE ksiazki SET status = 'wypożyczony' WHERE id_ksiazki = NEW.id_ksiazki;
+    RETURN NEW;
+END;
+$$;
+
+-- Funkcja triggera: Aktualizacja statusu książki po zwrocie
+CREATE OR REPLACE FUNCTION public.fn_after_zwrot_insert() 
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    wypozyczona_ksiazka_id INT;
+BEGIN
+    SELECT id_ksiazki INTO wypozyczona_ksiazka_id FROM wypozyczenia WHERE id_wypozyczenia = NEW.id_wypozyczenia;
+    UPDATE ksiazki SET status = 'dostępny' WHERE id_ksiazki = wypozyczona_ksiazka_id;
+    RETURN NEW;
+END;
+$$;
+
+-- Funkcja triggera: Walidacja daty zwrotu
+CREATE OR REPLACE FUNCTION public.sprawdz_date_zwrotu() 
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_data_wypozyczenia DATE;
+BEGIN
+    SELECT data_wypozyczenia INTO v_data_wypozyczenia
+    FROM wypozyczenia
+    WHERE id_wypozyczenia = NEW.id_wypozyczenia;
+
+    IF NEW.data_zwrotu < v_data_wypozyczenia THEN
+        RAISE EXCEPTION 'Błąd: Data zwrotu (%) nie może być wcześniejsza niż data wypożyczenia (%)', NEW.data_zwrotu, v_data_wypozyczenia;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+```
+## 2.Wyzwalacze (Triggers)
+Automatyzują zmianę statusów książek i dbają o spójność dat.
+```sql
+-- 1. Trigger walidujący datę zwrotu (podpięty pod tabelę 'zwroty')
+CREATE TRIGGER trg_walidacja_daty_zwrotu 
+BEFORE INSERT OR UPDATE ON public.zwroty 
+FOR EACH ROW EXECUTE FUNCTION public.sprawdz_date_zwrotu();
+
+-- 2. Trigger aktualizujący status książki po wypożyczeniu (podpięty pod 'wypozyczenia')
+CREATE TRIGGER trg_after_wypozyczenie 
+AFTER INSERT ON public.wypozyczenia 
+FOR EACH ROW EXECUTE FUNCTION public.fn_after_wypozyczenie_insert();
+
+-- 3. Trigger aktualizujący status książki po zwrocie (podpięty pod 'zwroty')
+CREATE TRIGGER trg_after_zwrot 
+AFTER INSERT ON public.zwroty 
+FOR EACH ROW EXECUTE FUNCTION public.fn_after_zwrot_insert();
+```
+## 3.Widoki
+Wdrożono dwa widoki ułatwiające raportowanie:
+```sql
+
+- 1. Widok Dłużników (osoby, które nie oddały książek w terminie)
+CREATE OR REPLACE VIEW public.view_dluznicy AS
+ SELECT u.imie,
+    u.nazwisko,
+    u.email,
+    k.tytul,
+    w.planowana_data_zwrotu,
+    (CURRENT_DATE - w.planowana_data_zwrotu) AS dni_spoznienia
+   FROM (((public.wypozyczenia w
+     JOIN public.uzytkownicy u ON ((w.id_osoby = u.id_osoby)))
+     JOIN public.ksiazki k ON ((w.id_ksiazki = k.id_ksiazki)))
+     LEFT JOIN public.zwroty z ON ((w.id_wypozyczenia = z.id_wypozyczenia)))
+  WHERE ((z.data_zwrotu IS NULL) AND (w.planowana_data_zwrotu < CURRENT_DATE));
+
+-- 2. Widok Top Książki (najczęściej wypożyczane pozycje)
+CREATE OR REPLACE VIEW public.view_top_ksiazki AS
+ SELECT k.tytul,
+    kat.nazwa_kategorii,
+    count(w.id_wypozyczenia) AS ilosc_wypozyczen
+   FROM ((public.ksiazki k
+     JOIN public.kategorie kat ON ((k.id_kategorii = kat.id_kategorii)))
+     JOIN public.wypozyczenia w ON ((k.id_ksiazki = w.id_ksiazki)))
+  GROUP BY k.tytul, kat.nazwa_kategorii
+  ORDER BY (count(w.id_wypozyczenia)) DESC;
+```
+## 4.Elementy Zabezpieczające (Constraints / CHECK)
+Baza posiada wbudowane w tabele reguły (Constraints), które dbają o jakość danych. 
+```sql
+-- 1. Ograniczenie oceny w komentarzach (musi być między 1 a 10)
+ALTER TABLE public.komentarze
+    ADD CONSTRAINT komentarze_ocena_check CHECK (((ocena >= 1) AND (ocena <= 10)));
+
+-- 2. Ograniczenie płci użytkownika (enum w formie checka)
+ALTER TABLE public.uzytkownicy
+    ADD CONSTRAINT osoby_plec_check CHECK (((plec)::text = ANY (ARRAY[('MEZCZYZNA'::character varying)::text, ('KOBIETA'::character varying)::text, ('NIEOKRESLONY'::character varying)::text])));
+
+-- 3. Logika daty w wypożyczeniach (planowany zwrot nie może być przed wypożyczeniem)
+ALTER TABLE public.wypozyczenia
+    ADD CONSTRAINT check_planowana_data CHECK ((planowana_data_zwrotu >= data_wypozyczenia));
+
+-- 4. Unikalne loginy i emaile
+ALTER TABLE public.uzytkownicy ADD CONSTRAINT uq_email UNIQUE (email);
+ALTER TABLE public.uzytkownicy ADD CONSTRAINT uq_login UNIQUE (login);
+
+-- 5. Unikalność fizycznego egzemplarza książki (ISBN + numer inwentarzowy)
+ALTER TABLE public.ksiazki ADD CONSTRAINT unikalny_egzemplarz UNIQUE (nr_isbn, numer_inwentarzowy);
+```
+## 5.Uprawnienia (Granty)
+```sql
+-- Nadanie uprawnień dla roli 'bibliotekarz' (pełny dostęp do kluczowych tabel)
+GRANT ALL ON TABLE public.filie TO bibliotekarz;
+GRANT ALL ON TABLE public.kary TO bibliotekarz;
+GRANT ALL ON TABLE public.kategorie TO bibliotekarz;
+GRANT ALL ON TABLE public.komentarze TO bibliotekarz;
+GRANT ALL ON TABLE public.ksiazki TO bibliotekarz;
+GRANT ALL ON TABLE public.rezerwacje TO bibliotekarz;
+GRANT ALL ON TABLE public.rodzaje_kar TO bibliotekarz;
+GRANT ALL ON TABLE public.uzytkownicy TO bibliotekarz;
+GRANT ALL ON TABLE public.wypozyczenia TO bibliotekarz;
+GRANT ALL ON TABLE public.zwroty TO bibliotekarz;
+GRANT ALL ON TABLE public.view_dluznicy TO bibliotekarz;
+GRANT ALL ON TABLE public.view_top_ksiazki TO bibliotekarz;
+GRANT ALL ON TABLE public.wejscia TO bibliotekarz;
+-- Sekwencje
+GRANT ALL ON SEQUENCE public.filie_id_filii_seq TO bibliotekarz;
+GRANT ALL ON SEQUENCE public.kary_id_kary_seq TO bibliotekarz;
+GRANT ALL ON SEQUENCE public.kategorie_id_kategorii_seq TO bibliotekarz;
+GRANT ALL ON SEQUENCE public.komentarze_id_komentarza_seq TO bibliotekarz;
+GRANT ALL ON SEQUENCE public.rezerwacje_id_rezerwacji_seq TO bibliotekarz;
+GRANT ALL ON SEQUENCE public.rodzaje_kar_id_rodzaju_kary_seq TO bibliotekarz;
+GRANT ALL ON SEQUENCE public.wejscia_id_wejscia_seq TO bibliotekarz;
+
+-- Nadanie uprawnień dla roli 'gosc_biblioteki' (tylko odczyt katalogów)
+GRANT SELECT ON TABLE public.filie TO gosc_biblioteki;
+GRANT SELECT ON TABLE public.kategorie TO gosc_biblioteki;
+GRANT SELECT ON TABLE public.ksiazki TO gosc_biblioteki;
+```
+
+
+
+
+
+
