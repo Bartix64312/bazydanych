@@ -125,7 +125,7 @@ FOR EACH ROW EXECUTE FUNCTION public.fn_after_zwrot_insert();
 Wdrożono dwa widoki ułatwiające raportowanie:
 ```sql
 
-- 1. Widok Dłużników (osoby, które nie oddały książek w terminie)
+--1. Widok Dłużników (osoby, które nie oddały książek w terminie)
 CREATE OR REPLACE VIEW public.view_dluznicy AS
  SELECT u.imie,
     u.nazwisko,
