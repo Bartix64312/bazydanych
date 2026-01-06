@@ -31,7 +31,7 @@ Projekt bazy danych do zarządzania nowoczesną biblioteką, zaimplementowany w 
 
 ## Schemat Bazy Danych
 
-<img width="1377" height="1366" alt="schematbazdanych" src="[https://github.com/user-attachments/assets/343d7e80-afa4-4897-b47b-fc3ff2d8f0e1](https://github.com/Bartix64312/bazydanych/blob/main/schemat.png)" />
+<img width="1377" height="1366" alt="schematbazdanych" src="https://github.com/Bartix64312/bazydanych/blob/main/schemat.png" />
 
 
 ## 1. Funkcje Składowane (Functions)
