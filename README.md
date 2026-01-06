@@ -38,6 +38,30 @@ Projekt bazy danych do zarządzania nowoczesną biblioteką, zaimplementowany w 
 Funkcje te są wymagane do działania triggerów oraz sprawdzania dostępności książek.
 W bazie zdefiniowano 4 funkcje. Jedna jest funkcją logiczną (sprawdzającą dostępność), a trzy pozostałe to funkcje wyzwalaczy (trigger functions).
 ```sql
+
+--Procedura
+
+CREATE OR REPLACE PROCEDURE public.zablokuj_dluznikow(p_dni_zwloki INT DEFAULT 30)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_liczba INT;
+BEGIN
+    WITH zablokowani AS (
+        UPDATE uzytkownicy u
+        SET aktywne = false
+        FROM kary k
+        WHERE u.id_osoby = k.id_osoby
+          AND k.data_oplacenia IS NULL
+          AND k.data_nalozenia < (CURRENT_DATE - p_dni_zwloki)
+          AND u.aktywne = true
+        RETURNING u.id_osoby
+    )
+    SELECT count(*) INTO v_liczba FROM zablokowani;
+
+    RAISE NOTICE 'Zablokowano osob: %', v_liczba;
+END;
+$$;
 CREATE OR REPLACE FUNCTION public.ile_dostepnych_egzemplarzy(p_isbn character varying)
 RETURNS integer
 LANGUAGE plpgsql
