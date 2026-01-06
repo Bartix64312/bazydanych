@@ -187,7 +187,7 @@ CREATE TRIGGER trg_after_zwrot
 AFTER INSERT ON public.zwroty 
 FOR EACH ROW EXECUTE FUNCTION public.fn_after_zwrot_insert();
 
-4.Limit wypożyczeń 5 ksiązek
+-- 4.Limit wypożyczeń 5 ksiązek
 CREATE OR REPLACE FUNCTION public.sprawdz_limit_wypozyczen()
 RETURNS trigger
 LANGUAGE plpgsql
