@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict NY9o1MQoaqc60S0r8dx1ieQyEOg4Nh6pbuLJbbTur2x96bHf9xJXXrNgLiNjdRG
+\restrict VnMrm88kkSP00RKgiwxLh7lZovEFtgKXrtJm2CKvdVQ7uhqcrpnkqkFMbLAlIqx
 
 -- Dumped from database version 18.0
 -- Dumped by pg_dump version 18.0
@@ -33,6 +33,7 @@ ALTER TABLE IF EXISTS ONLY public.kary DROP CONSTRAINT IF EXISTS kary_id_wypozyc
 ALTER TABLE IF EXISTS ONLY public.kary DROP CONSTRAINT IF EXISTS kary_id_rodzaju_kary_fkey;
 ALTER TABLE IF EXISTS ONLY public.kary DROP CONSTRAINT IF EXISTS kary_id_osoby_fkey;
 DROP TRIGGER IF EXISTS trg_walidacja_daty_zwrotu ON public.zwroty;
+DROP TRIGGER IF EXISTS trg_limit_wypozyczen ON public.wypozyczenia;
 DROP TRIGGER IF EXISTS trg_after_zwrot ON public.zwroty;
 DROP TRIGGER IF EXISTS trg_after_wypozyczenie ON public.wypozyczenia;
 ALTER TABLE IF EXISTS ONLY public.zwroty DROP CONSTRAINT IF EXISTS zwroty_pkey;
@@ -86,33 +87,12 @@ DROP SEQUENCE IF EXISTS public.kary_id_kary_seq;
 DROP TABLE IF EXISTS public.kary;
 DROP SEQUENCE IF EXISTS public.filie_id_filii_seq;
 DROP TABLE IF EXISTS public.filie;
+DROP FUNCTION IF EXISTS public.sprawdz_limit_wypozyczen();
 DROP FUNCTION IF EXISTS public.sprawdz_date_zwrotu();
+DROP FUNCTION IF EXISTS public.oblicz_szacowana_kare(p_id_wypozyczenia integer);
+DROP FUNCTION IF EXISTS public.ile_dostepnych_egzemplarzy(p_isbn character varying);
 DROP FUNCTION IF EXISTS public.fn_after_zwrot_insert();
 DROP FUNCTION IF EXISTS public.fn_after_wypozyczenie_insert();
-DROP FUNCTION IF EXISTS public.czy_ksiazka_dostepna(p_isbn character varying);
---
--- Name: czy_ksiazka_dostepna(character varying); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.czy_ksiazka_dostepna(p_isbn character varying) RETURNS boolean
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_ilosc INT;
-BEGIN
-    SELECT COUNT(*) INTO v_ilosc 
-    FROM ksiazki 
-    WHERE nr_isbn = p_isbn AND status = 'dostępny';
-    
-    IF v_ilosc > 0 THEN
-        RETURN TRUE;
-    ELSE
-        RETURN FALSE;
-    END IF;
-END;
-$$;
-
-
 --
 -- Name: fn_after_wypozyczenie_insert(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -121,8 +101,7 @@ CREATE FUNCTION public.fn_after_wypozyczenie_insert() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    -- Zmienia status na 'wypożyczony'
-    UPDATE ksiazki SET status = 'wypożyczony' WHERE id_ksiazki = NEW.id_ksiazki;
+    UPDATE ksiazki SET status = 'wypoĹĽyczony' WHERE id_ksiazki = NEW.id_ksiazki;
     RETURN NEW;
 END;
 $$;
@@ -138,10 +117,75 @@ CREATE FUNCTION public.fn_after_zwrot_insert() RETURNS trigger
 DECLARE
     wypozyczona_ksiazka_id INT;
 BEGIN
-    -- Pobiera ID książki z tabeli wypożyczeń i zmienia status na 'dostępny'
     SELECT id_ksiazki INTO wypozyczona_ksiazka_id FROM wypozyczenia WHERE id_wypozyczenia = NEW.id_wypozyczenia;
-    UPDATE ksiazki SET status = 'dostępny' WHERE id_ksiazki = wypozyczona_ksiazka_id;
+    UPDATE ksiazki SET status = 'dostÄ™pny' WHERE id_ksiazki = wypozyczona_ksiazka_id;
     RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: ile_dostepnych_egzemplarzy(character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.ile_dostepnych_egzemplarzy(p_isbn character varying) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_ilosc integer;
+BEGIN
+    SELECT COUNT(*) INTO v_ilosc
+    FROM ksiazki
+    WHERE nr_isbn = p_isbn 
+    AND LOWER(TRIM(status)) = 'dostępny' limit 1;
+
+    RETURN v_ilosc;
+END;
+$$;
+
+
+--
+-- Name: oblicz_szacowana_kare(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.oblicz_szacowana_kare(p_id_wypozyczenia integer) RETURNS numeric
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_planowana DATE;
+    v_faktyczna DATE;
+    v_koniec DATE;
+    v_dni_spoznienia INT;
+    v_stawka numeric(10, 2) := 0.50; -- Stawka za dzień zwłoki
+BEGIN
+    -- Pobierz daty
+    SELECT w.planowana_data_zwrotu, z.data_zwrotu
+    INTO v_planowana, v_faktyczna
+    FROM wypozyczenia w
+    LEFT JOIN zwroty z ON w.id_wypozyczenia = z.id_wypozyczenia
+    WHERE w.id_wypozyczenia = p_id_wypozyczenia;
+
+    -- Jeśli nie ma takiego wypożyczenia
+    IF NOT FOUND THEN
+        RETURN 0.00;
+    END IF;
+
+    -- Ustal datę końcową (zwrot lub dzisiaj)
+    IF v_faktyczna IS NOT NULL THEN
+        v_koniec := v_faktyczna;
+    ELSE
+        v_koniec := CURRENT_DATE;
+    END IF;
+
+    -- Oblicz różnicę
+    v_dni_spoznienia := v_koniec - v_planowana;
+
+    -- Jeśli oddano przed czasem, kara to 0
+    IF v_dni_spoznienia <= 0 THEN
+        RETURN 0.00;
+    ELSE
+        RETURN v_dni_spoznienia * v_stawka;
+    END IF;
 END;
 $$;
 
@@ -156,14 +200,35 @@ CREATE FUNCTION public.sprawdz_date_zwrotu() RETURNS trigger
 DECLARE
     v_data_wypozyczenia DATE;
 BEGIN
-    -- Pobieramy datę wypożyczenia dla oddawanej książki
     SELECT data_wypozyczenia INTO v_data_wypozyczenia
     FROM wypozyczenia
     WHERE id_wypozyczenia = NEW.id_wypozyczenia;
 
-    -- Sprawdzamy, czy data zwrotu nie jest wcześniejsza niż data wypożyczenia
     IF NEW.data_zwrotu < v_data_wypozyczenia THEN
-        RAISE EXCEPTION 'Błąd: Data zwrotu (%) nie może być wcześniejsza niż data wypożyczenia (%)', NEW.data_zwrotu, v_data_wypozyczenia;
+        RAISE EXCEPTION 'BĹ‚Ä…d: Data zwrotu (%) nie moĹĽe byÄ‡ wczeĹ›niejsza niĹĽ data wypoĹĽyczenia (%)', NEW.data_zwrotu, v_data_wypozyczenia;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: sprawdz_limit_wypozyczen(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sprawdz_limit_wypozyczen() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_liczba_aktywnych INT;
+    v_limit INT := 5; 
+BEGIN
+    -- Liczenie w jednej linii (bezpieczne)
+    SELECT COUNT(*) INTO v_liczba_aktywnych FROM public.wypozyczenia LEFT JOIN public.zwroty ON public.wypozyczenia.id_wypozyczenia = public.zwroty.id_wypozyczenia WHERE public.wypozyczenia.id_osoby = NEW.id_osoby AND public.zwroty.data_zwrotu IS NULL;
+
+    IF v_liczba_aktywnych >= v_limit THEN
+        RAISE EXCEPTION 'LIMIT ERROR: Max 5 books per user reached.';
     END IF;
 
     RETURN NEW;
@@ -434,7 +499,7 @@ CREATE TABLE public.uzytkownicy (
     data_zalozenia_konta timestamp without time zone,
     aktywne boolean DEFAULT true,
     CONSTRAINT osoby_plec_check CHECK (((plec)::text = ANY (ARRAY[('MEZCZYZNA'::character varying)::text, ('KOBIETA'::character varying)::text, ('NIEOKRESLONY'::character varying)::text]))),
-    CONSTRAINT uzytkownicy_plec_check CHECK (((plec)::text = ANY (ARRAY[('MEZCZYZNA'::character varying)::text, ('KOBIETA'::character varying)::text, ('NIEOKRESLONY'::character varying)::text])))
+    CONSTRAINT uzytkownicy_plec_check CHECK (((plec)::text = ANY ((ARRAY['MEZCZYZNA'::character varying, 'KOBIETA'::character varying, 'NIEOKRESLONY'::character varying])::text[])))
 );
 
 
@@ -3144,7 +3209,6 @@ COPY public.komentarze (id_komentarza, nr_isbn, id_osoby, ocena, tresc, data_dod
 --
 
 COPY public.ksiazki (id_ksiazki, nr_isbn, numer_inwentarzowy, tytul, autor, id_kategorii, id_filii, rok_wydania, numer_edycji, liczba_stron, dostepna_online, opis, status) FROM stdin;
-1	9781167966286	8228	Prawdziwy postępowanie okno	Anastazja Soczewka	8	2	1977	Wydanie I	314	f	Koncert bardzo potrafić suma morze. Dialekt podnosić pani rzeczownik model wieża tamten wóz.	dostępny
 2	9781698428123	26813	Ulegać dyrektor koza gwałtowny	Kaja Kałwa	3	9	1992	Wydanie I	762	t	Miejscowość utwór mężczyzna wszelki chociaż narząd lód. Fakt zniszczyć hałas no mowa aktywny ślad.	w konserwacji
 3	9781718044685	96034	Pisarz prezydent dowód	Marianna Poleszak	2	4	1968	Wydanie I	561	t	Porządek srebro używać wycieczka zawód zniszczyć go.	wypożyczony
 4	9780094652866	92556	Używać specjalny międzynarodowy móc	Krystian Serwach	7	10	1967	Wydanie I	696	f	Współczesny biskup opinia futro. Ogromny zimno wiosna wino. Słońce specjalny państwo jednostka.	dostępny
@@ -6144,6 +6208,7 @@ COPY public.ksiazki (id_ksiazki, nr_isbn, numer_inwentarzowy, tytul, autor, id_k
 2998	9780134362441	16785	Królowa kuchnia pod głowa	Adam Zbrożek	4	6	2000	Wydanie I	506	t	W Ciągu skutek łatwo czekolada zakończyć. Turecki nikt kurs ona miejscowość nadawać.	wypożyczony
 2999	9781545385265	7041	Cecha zakończenie pomarańczowy wreszcie ten	pan Marek Hermanowicz	3	3	1981	Wydanie I	155	f	Aż żart powstawać długość ona w typ. Piosenka Niemiec Holandia.	dostępny
 3000	9780690936506	8864	Pomysł 40 temat znany	Julita Drobot	9	10	2016	Wydanie I	505	t	Zwycięstwo biec uznawać powodować. Czapka doskonały jakby.	dostępny
+1	9781167966286	8228	Prawdziwy postępowanie okno	Anastazja Soczewka	8	2	1977	Wydanie I	314	f	Koncert bardzo potrafić suma morze. Dialekt podnosić pani rzeczownik model wieża tamten wóz.	wypoĹĽyczony
 \.
 
 
@@ -14487,6 +14552,8 @@ COPY public.wypozyczenia (id_wypozyczenia, id_osoby, id_ksiazki, data_wypozyczen
 4998	2	2281	2025-12-14	2026-01-13
 4999	208	555	2024-12-29	2025-01-28
 5000	153	2558	2024-10-11	2024-11-10
+5001	1000	1	2026-01-06	2026-01-07
+5002	1000	1	2026-01-06	2026-01-07
 \.
 
 
@@ -18480,6 +18547,7 @@ COPY public.zwroty (id_wypozyczenia, data_zwrotu) FROM stdin;
 4998	2025-12-23
 4999	2025-02-23
 5000	2024-10-31
+5001	2026-01-06
 \.
 
 
@@ -18712,6 +18780,13 @@ CREATE TRIGGER trg_after_zwrot AFTER INSERT ON public.zwroty FOR EACH ROW EXECUT
 
 
 --
+-- Name: wypozyczenia trg_limit_wypozyczen; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_limit_wypozyczen BEFORE INSERT ON public.wypozyczenia FOR EACH ROW EXECUTE FUNCTION public.sprawdz_limit_wypozyczen();
+
+
+--
 -- Name: zwroty trg_walidacja_daty_zwrotu; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -18826,5 +18901,5 @@ ALTER TABLE ONLY public.zwroty
 -- PostgreSQL database dump complete
 --
 
-\unrestrict NY9o1MQoaqc60S0r8dx1ieQyEOg4Nh6pbuLJbbTur2x96bHf9xJXXrNgLiNjdRG
+\unrestrict VnMrm88kkSP00RKgiwxLh7lZovEFtgKXrtJm2CKvdVQ7uhqcrpnkqkFMbLAlIqx
 

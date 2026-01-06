@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict N90btv9Quouq1Q9WsCZM1Yrs93hw28LZSy8pPF2YGZgVLAq0Yxh5MMeUtd9f15B
+\restrict AtWfDfuSvxC8ZRvkevWzjCfwQDkR1X97e8MjbECULR1jAL0tWJdpUBG8pmb0P5u
 
 -- Dumped from database version 18.0
 -- Dumped by pg_dump version 18.0
@@ -32,12 +32,17 @@ ALTER TABLE IF EXISTS ONLY public.komentarze DROP CONSTRAINT IF EXISTS komentarz
 ALTER TABLE IF EXISTS ONLY public.kary DROP CONSTRAINT IF EXISTS kary_id_wypozyczenia_fkey;
 ALTER TABLE IF EXISTS ONLY public.kary DROP CONSTRAINT IF EXISTS kary_id_rodzaju_kary_fkey;
 ALTER TABLE IF EXISTS ONLY public.kary DROP CONSTRAINT IF EXISTS kary_id_osoby_fkey;
+DROP TRIGGER IF EXISTS trg_walidacja_daty_zwrotu ON public.zwroty;
+DROP TRIGGER IF EXISTS trg_after_zwrot ON public.zwroty;
+DROP TRIGGER IF EXISTS trg_after_wypozyczenie ON public.wypozyczenia;
 ALTER TABLE IF EXISTS ONLY public.zwroty DROP CONSTRAINT IF EXISTS zwroty_pkey;
 ALTER TABLE IF EXISTS ONLY public.wypozyczenia DROP CONSTRAINT IF EXISTS wypozyczenia_pkey;
 ALTER TABLE IF EXISTS ONLY public.wejscia_wyjscia DROP CONSTRAINT IF EXISTS wejscia_wyjscia_pkey;
 ALTER TABLE IF EXISTS ONLY public.uzytkownicy DROP CONSTRAINT IF EXISTS uzytkownicy_pkey;
 ALTER TABLE IF EXISTS ONLY public.uzytkownicy DROP CONSTRAINT IF EXISTS uzytkownicy_login_key;
 ALTER TABLE IF EXISTS ONLY public.uzytkownicy DROP CONSTRAINT IF EXISTS uzytkownicy_email_key;
+ALTER TABLE IF EXISTS ONLY public.uzytkownicy DROP CONSTRAINT IF EXISTS uq_login;
+ALTER TABLE IF EXISTS ONLY public.uzytkownicy DROP CONSTRAINT IF EXISTS uq_email;
 ALTER TABLE IF EXISTS ONLY public.ksiazki DROP CONSTRAINT IF EXISTS unikalny_egzemplarz;
 ALTER TABLE IF EXISTS ONLY public.rodzaje_kar DROP CONSTRAINT IF EXISTS rodzaje_kar_pkey;
 ALTER TABLE IF EXISTS ONLY public.rezerwacje DROP CONSTRAINT IF EXISTS rezerwacje_pkey;
@@ -58,11 +63,13 @@ ALTER TABLE IF EXISTS public.komentarze ALTER COLUMN id_komentarza DROP DEFAULT;
 ALTER TABLE IF EXISTS public.kategorie ALTER COLUMN id_kategorii DROP DEFAULT;
 ALTER TABLE IF EXISTS public.kary ALTER COLUMN id_kary DROP DEFAULT;
 ALTER TABLE IF EXISTS public.filie ALTER COLUMN id_filii DROP DEFAULT;
-DROP TABLE IF EXISTS public.zwroty;
 DROP SEQUENCE IF EXISTS public.wypozyczenia_id_wypozyczenia_seq;
-DROP TABLE IF EXISTS public.wypozyczenia;
 DROP SEQUENCE IF EXISTS public.wejscia_wyjscia_id_wejscia_seq;
 DROP TABLE IF EXISTS public.wejscia_wyjscia;
+DROP VIEW IF EXISTS public.view_top_ksiazki;
+DROP VIEW IF EXISTS public.view_dluznicy;
+DROP TABLE IF EXISTS public.zwroty;
+DROP TABLE IF EXISTS public.wypozyczenia;
 DROP SEQUENCE IF EXISTS public.uzytkownicy_id_osoby_seq;
 DROP TABLE IF EXISTS public.uzytkownicy;
 DROP SEQUENCE IF EXISTS public.rodzaje_kar_id_rodzaju_kary_seq;
@@ -79,6 +86,87 @@ DROP SEQUENCE IF EXISTS public.kary_id_kary_seq;
 DROP TABLE IF EXISTS public.kary;
 DROP SEQUENCE IF EXISTS public.filie_id_filii_seq;
 DROP TABLE IF EXISTS public.filie;
+DROP FUNCTION IF EXISTS public.sprawdz_date_zwrotu();
+DROP FUNCTION IF EXISTS public.fn_after_zwrot_insert();
+DROP FUNCTION IF EXISTS public.fn_after_wypozyczenie_insert();
+DROP FUNCTION IF EXISTS public.czy_ksiazka_dostepna(p_isbn character varying);
+--
+-- Name: czy_ksiazka_dostepna(character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.czy_ksiazka_dostepna(p_isbn character varying) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_ilosc INT;
+BEGIN
+    SELECT COUNT(*) INTO v_ilosc 
+    FROM ksiazki 
+    WHERE nr_isbn = p_isbn AND status = 'dostÄ™pny';
+    
+    IF v_ilosc > 0 THEN
+        RETURN TRUE;
+    ELSE
+        RETURN FALSE;
+    END IF;
+END;
+$$;
+
+
+--
+-- Name: fn_after_wypozyczenie_insert(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.fn_after_wypozyczenie_insert() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    UPDATE ksiazki SET status = 'wypoĹĽyczony' WHERE id_ksiazki = NEW.id_ksiazki;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: fn_after_zwrot_insert(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.fn_after_zwrot_insert() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    wypozyczona_ksiazka_id INT;
+BEGIN
+    SELECT id_ksiazki INTO wypozyczona_ksiazka_id FROM wypozyczenia WHERE id_wypozyczenia = NEW.id_wypozyczenia;
+    UPDATE ksiazki SET status = 'dostÄ™pny' WHERE id_ksiazki = wypozyczona_ksiazka_id;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: sprawdz_date_zwrotu(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sprawdz_date_zwrotu() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_data_wypozyczenia DATE;
+BEGIN
+    SELECT data_wypozyczenia INTO v_data_wypozyczenia
+    FROM wypozyczenia
+    WHERE id_wypozyczenia = NEW.id_wypozyczenia;
+
+    IF NEW.data_zwrotu < v_data_wypozyczenia THEN
+        RAISE EXCEPTION 'BĹ‚Ä…d: Data zwrotu (%) nie moĹĽe byÄ‡ wczeĹ›niejsza niĹĽ data wypoĹĽyczenia (%)', NEW.data_zwrotu, v_data_wypozyczenia;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -341,6 +429,7 @@ CREATE TABLE public.uzytkownicy (
     url_profilowe character varying(255),
     data_zalozenia_konta timestamp without time zone,
     aktywne boolean DEFAULT true,
+    CONSTRAINT osoby_plec_check CHECK (((plec)::text = ANY (ARRAY[('MEZCZYZNA'::character varying)::text, ('KOBIETA'::character varying)::text, ('NIEOKRESLONY'::character varying)::text]))),
     CONSTRAINT uzytkownicy_plec_check CHECK (((plec)::text = ANY ((ARRAY['MEZCZYZNA'::character varying, 'KOBIETA'::character varying, 'NIEOKRESLONY'::character varying])::text[])))
 );
 
@@ -363,6 +452,63 @@ CREATE SEQUENCE public.uzytkownicy_id_osoby_seq
 --
 
 ALTER SEQUENCE public.uzytkownicy_id_osoby_seq OWNED BY public.uzytkownicy.id_osoby;
+
+
+--
+-- Name: wypozyczenia; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.wypozyczenia (
+    id_wypozyczenia integer NOT NULL,
+    id_osoby integer NOT NULL,
+    id_ksiazki integer NOT NULL,
+    data_wypozyczenia date NOT NULL,
+    planowana_data_zwrotu date NOT NULL,
+    CONSTRAINT check_planowana_data CHECK ((planowana_data_zwrotu >= data_wypozyczenia))
+);
+
+
+--
+-- Name: zwroty; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zwroty (
+    id_wypozyczenia integer NOT NULL,
+    data_zwrotu date NOT NULL
+);
+
+
+--
+-- Name: view_dluznicy; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.view_dluznicy AS
+ SELECT u.imie,
+    u.nazwisko,
+    u.email,
+    k.tytul,
+    w.planowana_data_zwrotu,
+    (CURRENT_DATE - w.planowana_data_zwrotu) AS dni_spoznienia
+   FROM (((public.wypozyczenia w
+     JOIN public.uzytkownicy u ON ((w.id_osoby = u.id_osoby)))
+     JOIN public.ksiazki k ON ((w.id_ksiazki = k.id_ksiazki)))
+     LEFT JOIN public.zwroty z ON ((w.id_wypozyczenia = z.id_wypozyczenia)))
+  WHERE ((z.data_zwrotu IS NULL) AND (w.planowana_data_zwrotu < CURRENT_DATE));
+
+
+--
+-- Name: view_top_ksiazki; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.view_top_ksiazki AS
+ SELECT k.tytul,
+    kat.nazwa_kategorii,
+    count(w.id_wypozyczenia) AS ilosc_wypozyczen
+   FROM ((public.ksiazki k
+     JOIN public.kategorie kat ON ((k.id_kategorii = kat.id_kategorii)))
+     JOIN public.wypozyczenia w ON ((k.id_ksiazki = w.id_ksiazki)))
+  GROUP BY k.tytul, kat.nazwa_kategorii
+  ORDER BY (count(w.id_wypozyczenia)) DESC;
 
 
 --
@@ -399,19 +545,6 @@ ALTER SEQUENCE public.wejscia_wyjscia_id_wejscia_seq OWNED BY public.wejscia_wyj
 
 
 --
--- Name: wypozyczenia; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.wypozyczenia (
-    id_wypozyczenia integer NOT NULL,
-    id_osoby integer NOT NULL,
-    id_ksiazki integer NOT NULL,
-    data_wypozyczenia date NOT NULL,
-    planowana_data_zwrotu date NOT NULL
-);
-
-
---
 -- Name: wypozyczenia_id_wypozyczenia_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -429,16 +562,6 @@ CREATE SEQUENCE public.wypozyczenia_id_wypozyczenia_seq
 --
 
 ALTER SEQUENCE public.wypozyczenia_id_wypozyczenia_seq OWNED BY public.wypozyczenia.id_wypozyczenia;
-
-
---
--- Name: zwroty; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zwroty (
-    id_wypozyczenia integer NOT NULL,
-    data_zwrotu date NOT NULL
-);
 
 
 --
@@ -18374,7 +18497,7 @@ SELECT pg_catalog.setval('public.kary_id_kary_seq', 1949, true);
 -- Name: kategorie_id_kategorii_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.kategorie_id_kategorii_seq', 10, true);
+SELECT pg_catalog.setval('public.kategorie_id_kategorii_seq', 11, true);
 
 
 --
@@ -18409,7 +18532,7 @@ SELECT pg_catalog.setval('public.rodzaje_kar_id_rodzaju_kary_seq', 3, true);
 -- Name: uzytkownicy_id_osoby_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.uzytkownicy_id_osoby_seq', 1000, true);
+SELECT pg_catalog.setval('public.uzytkownicy_id_osoby_seq', 1001, true);
 
 
 --
@@ -18507,6 +18630,22 @@ ALTER TABLE ONLY public.ksiazki
 
 
 --
+-- Name: uzytkownicy uq_email; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.uzytkownicy
+    ADD CONSTRAINT uq_email UNIQUE (email);
+
+
+--
+-- Name: uzytkownicy uq_login; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.uzytkownicy
+    ADD CONSTRAINT uq_login UNIQUE (login);
+
+
+--
 -- Name: uzytkownicy uzytkownicy_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -18552,6 +18691,27 @@ ALTER TABLE ONLY public.wypozyczenia
 
 ALTER TABLE ONLY public.zwroty
     ADD CONSTRAINT zwroty_pkey PRIMARY KEY (id_wypozyczenia);
+
+
+--
+-- Name: wypozyczenia trg_after_wypozyczenie; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_after_wypozyczenie AFTER INSERT ON public.wypozyczenia FOR EACH ROW EXECUTE FUNCTION public.fn_after_wypozyczenie_insert();
+
+
+--
+-- Name: zwroty trg_after_zwrot; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_after_zwrot AFTER INSERT ON public.zwroty FOR EACH ROW EXECUTE FUNCTION public.fn_after_zwrot_insert();
+
+
+--
+-- Name: zwroty trg_walidacja_daty_zwrotu; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_walidacja_daty_zwrotu BEFORE INSERT OR UPDATE ON public.zwroty FOR EACH ROW EXECUTE FUNCTION public.sprawdz_date_zwrotu();
 
 
 --
@@ -18662,5 +18822,5 @@ ALTER TABLE ONLY public.zwroty
 -- PostgreSQL database dump complete
 --
 
-\unrestrict N90btv9Quouq1Q9WsCZM1Yrs93hw28LZSy8pPF2YGZgVLAq0Yxh5MMeUtd9f15B
+\unrestrict AtWfDfuSvxC8ZRvkevWzjCfwQDkR1X97e8MjbECULR1jAL0tWJdpUBG8pmb0P5u
 

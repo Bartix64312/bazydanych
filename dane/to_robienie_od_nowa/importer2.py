@@ -8,7 +8,7 @@ DB_HOST = "localhost"
 DB_PORT = "5432"
 DB_USER = "postgres"      # Twój użytkownik postgres
 DB_PASSWORD = "haslo"  # Twoje hasło do postgresa
-DB_NAME = "biblioteka_zrobiona_od_nowa"    # Nazwa nowej bazy danych
+DB_NAME = "biblioteka_test"    # Nazwa nowej bazy danych
 
 # Katalog z plikami CSV (musi być ten sam, co w generatorze)
 DATA_DIR = 'dane_biblioteczne'

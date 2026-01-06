@@ -3,7 +3,7 @@ import psycopg2
 import sys
 
 # --- KONFIGURACJA ---
-DB_NAME = "biblioteka_zrobiona_od_nowa"
+DB_NAME = "biblioteka"
 DB_USER = "postgres"
 DB_PASSWORD = "haslo"  # Zmień na swoje
 DB_HOST = "localhost"
