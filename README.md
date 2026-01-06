@@ -53,6 +53,48 @@ BEGIN
     RETURN v_ilosc;
 END;
 $$;
+-- Funkcja sprawdzenia ile użytkownik ma kary:
+CREATE OR REPLACE FUNCTION public.oblicz_szacowana_kare(p_id_wypozyczenia INT)
+RETURNS numeric(10, 2)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_planowana DATE;
+    v_faktyczna DATE;
+    v_koniec DATE;
+    v_dni_spoznienia INT;
+    v_stawka numeric(10, 2) := 0.50; -- Stawka za dzień zwłoki
+BEGIN
+    -- Pobierz daty
+    SELECT w.planowana_data_zwrotu, z.data_zwrotu
+    INTO v_planowana, v_faktyczna
+    FROM wypozyczenia w
+    LEFT JOIN zwroty z ON w.id_wypozyczenia = z.id_wypozyczenia
+    WHERE w.id_wypozyczenia = p_id_wypozyczenia;
+
+    -- Jeśli nie ma takiego wypożyczenia
+    IF NOT FOUND THEN
+        RETURN 0.00;
+    END IF;
+
+    -- Ustal datę końcową (zwrot lub dzisiaj)
+    IF v_faktyczna IS NOT NULL THEN
+        v_koniec := v_faktyczna;
+    ELSE
+        v_koniec := CURRENT_DATE;
+    END IF;
+
+    -- Oblicz różnicę
+    v_dni_spoznienia := v_koniec - v_planowana;
+
+    -- Jeśli oddano przed czasem, kara to 0
+    IF v_dni_spoznienia <= 0 THEN
+        RETURN 0.00;
+    ELSE
+        RETURN v_dni_spoznienia * v_stawka;
+    END IF;
+END;
+$$;
 
 -- Funkcja triggera: Aktualizacja statusu książki po wypożyczeniu
 CREATE OR REPLACE FUNCTION public.fn_after_wypozyczenie_insert() 
