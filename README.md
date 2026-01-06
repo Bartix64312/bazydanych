@@ -38,23 +38,19 @@ Projekt bazy danych do zarządzania nowoczesną biblioteką, zaimplementowany w 
 Funkcje te są wymagane do działania triggerów oraz sprawdzania dostępności książek.
 W bazie zdefiniowano 4 funkcje. Jedna jest funkcją logiczną (sprawdzającą dostępność), a trzy pozostałe to funkcje wyzwalaczy (trigger functions).
 ```sql
--- Funkcja: Sprawdzanie dostępności książki po numerze ISBN
-CREATE OR REPLACE FUNCTION public.czy_ksiazka_dostepna(p_isbn character varying) 
-RETURNS boolean
+CREATE OR REPLACE FUNCTION public.ile_dostepnych_egzemplarzy(p_isbn character varying)
+RETURNS integer
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_ilosc INT;
+    v_ilosc integer;
 BEGIN
-    SELECT COUNT(*) INTO v_ilosc 
-    FROM ksiazki 
-    WHERE nr_isbn = p_isbn AND status = 'dostępny';
-    
-    IF v_ilosc > 0 THEN
-        RETURN TRUE;
-    ELSE
-        RETURN FALSE;
-    END IF;
+    SELECT COUNT(*) INTO v_ilosc
+    FROM ksiazki
+    WHERE nr_isbn = p_isbn 
+    AND LOWER(TRIM(status)) = 'dostępny' limit 1;
+
+    RETURN v_ilosc;
 END;
 $$;
 
