@@ -187,7 +187,7 @@ GRANT ALL ON TABLE public.wypozyczenia TO bibliotekarz;
 GRANT ALL ON TABLE public.zwroty TO bibliotekarz;
 GRANT ALL ON TABLE public.view_dluznicy TO bibliotekarz;
 GRANT ALL ON TABLE public.view_top_ksiazki TO bibliotekarz;
-GRANT ALL ON TABLE public.wejscia TO bibliotekarz;
+GRANT ALL ON TABLE public.wejscia_wyjscia TO bibliotekarz;
 -- Sekwencje
 GRANT ALL ON SEQUENCE public.filie_id_filii_seq TO bibliotekarz;
 GRANT ALL ON SEQUENCE public.kary_id_kary_seq TO bibliotekarz;
@@ -195,7 +195,7 @@ GRANT ALL ON SEQUENCE public.kategorie_id_kategorii_seq TO bibliotekarz;
 GRANT ALL ON SEQUENCE public.komentarze_id_komentarza_seq TO bibliotekarz;
 GRANT ALL ON SEQUENCE public.rezerwacje_id_rezerwacji_seq TO bibliotekarz;
 GRANT ALL ON SEQUENCE public.rodzaje_kar_id_rodzaju_kary_seq TO bibliotekarz;
-GRANT ALL ON SEQUENCE public.wejscia_id_wejscia_seq TO bibliotekarz;
+grant all on sequence public.wejscia_wyjscia_id_wejscia_seq to bibliotekarz;
 
 -- Nadanie uprawnień dla roli 'gosc_biblioteki' (tylko odczyt katalogów)
 GRANT SELECT ON TABLE public.filie TO gosc_biblioteki;
