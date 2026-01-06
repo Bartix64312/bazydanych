@@ -164,6 +164,10 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+
+
+
+
 ```
 ## 2.Wyzwalacze (Triggers)
 Automatyzują zmianę statusów książek i dbają o spójność dat.
@@ -182,6 +186,31 @@ FOR EACH ROW EXECUTE FUNCTION public.fn_after_wypozyczenie_insert();
 CREATE TRIGGER trg_after_zwrot 
 AFTER INSERT ON public.zwroty 
 FOR EACH ROW EXECUTE FUNCTION public.fn_after_zwrot_insert();
+
+4.Limit wypożyczeń 5 ksiązek
+CREATE OR REPLACE FUNCTION public.sprawdz_limit_wypozyczen()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_liczba_aktywnych INT;
+    v_limit INT := 5; 
+BEGIN
+    -- Liczenie w jednej linii (bezpieczne)
+    SELECT COUNT(*) INTO v_liczba_aktywnych FROM public.wypozyczenia LEFT JOIN public.zwroty ON public.wypozyczenia.id_wypozyczenia = public.zwroty.id_wypozyczenia WHERE public.wypozyczenia.id_osoby = NEW.id_osoby AND public.zwroty.data_zwrotu IS NULL;
+
+    IF v_liczba_aktywnych >= v_limit THEN
+        RAISE EXCEPTION 'LIMIT ERROR: Max 5 books per user reached.';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_limit_wypozyczen ON public.wypozyczenia;
+
+CREATE TRIGGER trg_limit_wypozyczen
+BEFORE INSERT ON public.wypozyczenia
+FOR EACH ROW EXECUTE FUNCTION public.sprawdz_limit_wypozyczen();
 ```
 ## 3.Widoki
 Wdrożono dwa widoki ułatwiające raportowanie:
